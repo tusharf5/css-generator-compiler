@@ -132,4 +132,4 @@ function generator(animNode){
     return `.${animNode.className} {\n transform: ${animNode.transform}(${animNode.direction === '-' ? animNode.direction : ''}${animNode.value}${animNode.unit});\n} `
 }
 
-console.log(generator(transformer(parser(tokenizer("Move akku left 87px")))));
+console.log(generator(transformer(parser(tokenizer("Move element left 87px")))));

@@ -8,20 +8,19 @@ const isAValueWithUnit = token => {
 
 const getValueAndUnit = token => {
   const unitIndex = token.match(unitsRegex).index;
-
-  const value = {
+  return {
     type: 'valueUnit',
     value: token.substr(0, unitIndex),
     unit: token.substr(unitIndex, token.length - 1)
   };
+};
 
-  return value;
+const getWordAndNumber = token => {
+  return isNaN(token) ? { type: 'word', value: token } : { type: 'number', value: token };
 };
 
 const dealWithToken = token => {
-  return isAValueWithUnit(token)
-    ? getValueAndUnit(token)
-    : isNaN(token) ? { type: 'word', value: token } : { type: 'number', value: token };
+  return isAValueWithUnit(token) ? getValueAndUnit(token) : getWordAndNumber(token);
 };
 
 function tokenizer(code) {
@@ -95,65 +94,99 @@ function parser(tokens) {
 //  }
 
 function transformer(ast) {
-  let animNode = {
-    className: '',
-    transform: '',
-    value: '',
-    direction: '',
-    unit: ''
-  };
+  let animNodes = [];
 
-  while (ast.body[0].arguments.length > 0) {
-    let token = ast.body[0].arguments.shift();
+  // const animNode = {
+  //   className: '',
+  //   transform: '',
+  //   value: '',
+  //   direction: '',
+  //   unit: ''
+  // };
 
-    switch (token.name) {
-      case 'Classname':
-        animNode.className = token.value;
-        break;
-      case 'Direction':
-        switch (token.value) {
-          case 'right':
-            animNode.transform = 'translateX';
-            animNode.direction = '+';
-            break;
-          case 'left':
-            animNode.transform = 'translateX';
-            animNode.direction = '-';
-            break;
-          case 'down':
-            animNode.transform = 'translateY';
-            animNode.direction = '-';
-            break;
-          case 'up':
-            animNode.transform = 'translateY';
-            animNode.direction = '+';
-            break;
-          default:
-            throw new Error('UNknown Direction');
-        }
-        break;
-      case 'ValueByUnit':
-        if (token.value && token.unit) {
-          animNode.value = token.value;
-          animNode.unit = token.unit;
-        }
-        break;
-      default:
-        throw new Error('Unknown Token');
-    }
+  if (ast.body.length === 0) {
+    throw new Error('Provided Empty Body');
   }
-  return animNode;
+
+  let bodyNode;
+  let animNode;
+  let allClasses = new Set();
+
+  ast.body.forEach(element => {
+    element.arguments.forEach(token => {
+      if (token.name === 'Classname') {
+        allClasses.add(token.value);
+      }
+    });
+  });
+
+  while (ast.body.length > 0) {
+    bodyNode = ast.body.shift();
+    animNode = {};
+    while (bodyNode.arguments.length > 0) {
+      let token = bodyNode.arguments.shift();
+      switch (token.name) {
+        case 'Classname':
+          // Now when the class parsing is already in the set make sure to add the property to the same node instead of another
+          animNode.className = token.value;
+          break;
+        case 'Direction':
+          switch (token.value) {
+            case 'right':
+              animNode.transform = 'translateX';
+              animNode.direction = '+';
+              break;
+            case 'left':
+              animNode.transform = 'translateX';
+              animNode.direction = '-';
+              break;
+            case 'down':
+              animNode.transform = 'translateY';
+              animNode.direction = '-';
+              break;
+            case 'up':
+              animNode.transform = 'translateY';
+              animNode.direction = '+';
+              break;
+            default:
+              throw new Error('UNknown Direction');
+          }
+          break;
+        case 'ValueByUnit':
+          if (token.value && token.unit) {
+            animNode.value = token.value;
+            animNode.unit = token.unit;
+          }
+          break;
+        default:
+          throw new Error('Unknown Token');
+      }
+    }
+    animNodes.push(animNode);
+  }
+
+  return animNodes;
 }
 
-function generator(animNode) {
-  return `.${animNode.className} {\n transform: ${animNode.transform}(${
-    animNode.direction === '-' ? animNode.direction : ''
-  }${animNode.value}${animNode.unit});\n} `;
+function generator(animNodes) {
+  let str = '';
+  let animNode;
+  while (animNodes.length > 0) {
+    animNode = animNodes.shift();
+    str =
+      str +
+      `.${animNode.className} {\n transform: ${animNode.transform}(${
+        animNode.direction === '-' ? animNode.direction : ''
+      }${animNode.value}${animNode.unit});\n} `;
+  }
+  return str;
 }
 
 // Stages of a Compiler
 
-console.log(generator(transformer(parser(tokenizer('Move classname up 27px')))));
+console.log(
+  generator(transformer(parser(tokenizer('Move classname up 27px Move classname up 27px'))))
+);
 
 // Feed the source and get the output
 
